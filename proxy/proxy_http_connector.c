@@ -46,16 +46,39 @@ connection_free( ProxyConnection*  root )
 
 #define  HTTP_VERSION  "1.1"
 
+static const char*
+http_header_list_find( HttpHeaderList*  l,
+                       const char*      key )
+{
+    HttpHeader*  h;
+    for (h = l->first; h; h = h->next)
+        if (!strcasecmp(h->key, key))
+            return h->value;
+
+    return NULL;
+}
+
+static char*
+http_request_find_header( HttpRequest*  r,
+                          const char*   key )
+{
+    return (char*)http_header_list_find(r->headers, key);
+}
+
 static int
 connection_init( Connection*  conn )
 {
     HttpService*      service = (HttpService*) conn->root->service;
+    HttpRequest*      r       = conn->request;
     ProxyConnection*  root    = conn->root;
     stralloc_t*       str     = root->str;
 
     proxy_connection_rewind(root);
+    char*  host = http_request_find_header(r, "Host");
     stralloc_add_format(str, "CONNECT %s HTTP/" HTTP_VERSION "\r\n",
-                        sock_address_to_string(&root->address));
+                        sock_address_to_string(&host));
+    stralloc_add_format(str, "Host: %s\r\n",
+                        sock_address_to_string(&host));
 
     stralloc_add_bytes(str, service->footer, service->footer_len);
 
